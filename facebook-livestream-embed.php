@@ -114,38 +114,25 @@ function facebook_live_stream_page_id_callback() {
     $page_id = get_option('facebook_live_stream_page_id');
     echo '<input type="text" name="facebook_live_stream_page_id" value="' . esc_attr($page_id) . '" size="50" />';
 }
+
 function fetch_live_video($page_id, $access_token) {
     $live_video_url = "https://graph.facebook.com/$page_id/live_videos?access_token=$access_token";
     $response = wp_remote_get($live_video_url);
     if (is_wp_error($response)) {
-        error_log('Live Video Fetch Error: ' . $response->get_error_message());
-        return null;
+        return 'Live Video Fetch Error: ' . $response->get_error_message();
     }
     $body = wp_remote_retrieve_body($response);
-    error_log('Live Video Response: ' . $body); // Log the response for debugging
-    $data = json_decode($body, true);
-
-    if (isset($data['data']) && !empty($data['data'])) {
-        return $data['data'][0]['id'];
-    }
-    return null;
+    return 'Live Video Response: ' . $body; // Display the response for debugging
 }
 
 function fetch_recent_video($page_id, $access_token) {
     $recent_video_url = "https://graph.facebook.com/$page_id/videos?access_token=$access_token";
     $response = wp_remote_get($recent_video_url);
     if (is_wp_error($response)) {
-        error_log('Recent Video Fetch Error: ' . $response->get_error_message());
-        return null;
+        return 'Recent Video Fetch Error: ' . $response->get_error_message();
     }
     $body = wp_remote_retrieve_body($response);
-    error_log('Recent Video Response: ' . $body); // Log the response for debugging
-    $data = json_decode($body, true);
-
-    if (isset($data['data']) && !empty($data['data'])) {
-        return $data['data'][0]['id'];
-    }
-    return null;
+    return 'Recent Video Response: ' . $body; // Display the response for debugging
 }
 
 function facebook_live_stream_shortcode($atts) {
@@ -161,18 +148,39 @@ function facebook_live_stream_shortcode($atts) {
         return '<p>Please provide valid Facebook App credentials in the plugin settings.</p>';
     }
 
+    // Generate App Access Token
     $access_token = $app_id . '|' . $app_secret;
 
     // Check for live video first
-    $video_id = fetch_live_video($page_id, $access_token);
+    $live_video_response = fetch_live_video($page_id, $access_token);
+    if (strpos($live_video_response, 'Live Video Response:') === 0) {
+        $video_data = json_decode(substr($live_video_response, strlen('Live Video Response: ')), true);
+        if (isset($video_data['data']) && !empty($video_data['data'])) {
+            $video_id = $video_data['data'][0]['id'];
+        } else {
+            $video_id = null;
+        }
+    } else {
+        $video_id = null;
+    }
 
     // If no live video, check for the most recent video
     if (is_null($video_id)) {
-        $video_id = fetch_recent_video($page_id, $access_token);
+        $recent_video_response = fetch_recent_video($page_id, $access_token);
+        if (strpos($recent_video_response, 'Recent Video Response:') === 0) {
+            $video_data = json_decode(substr($recent_video_response, strlen('Recent Video Response: ')), true);
+            if (isset($video_data['data']) && !empty($video_data['data'])) {
+                $video_id = $video_data['data'][0]['id'];
+            } else {
+                $video_id = null;
+            }
+        } else {
+            $video_id = null;
+        }
     }
 
     if (is_null($video_id)) {
-        return '<p>No live stream or recent video found.</p>';
+        return '<p>No live stream or recent video found.</p>' . '<br>' . $live_video_response . '<br>' . $recent_video_response;
     }
 
     $embed_code = '<div id="fb-root"></div>';
