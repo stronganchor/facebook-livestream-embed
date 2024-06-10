@@ -49,9 +49,9 @@ function facebook_live_stream_settings_page_content() {
         <p>Replace <code>PAGE_ID</code> with the actual Facebook page ID.</p>
         <h3>How to Find the Page ID</h3>
         <ol>
-            <li>Go to the Facebook page.</li>
-            <li>Look at the URL in your browser's address bar. The page ID is the string of numbers after the "/pages/" part of the URL.</li>
-            <li>For example, if the URL is <code>https://www.facebook.com/pages/Your-Page-Name/123456789012345</code>, the page ID is <code>123456789012345</code>.</li>
+            <li>Go to the videos tab of the Facebook page</li>
+            <li>Look at the URL of one of the videos. The page ID is the first string of numbers after the ".com" part of the URL.</li>
+            <li>For example, if the URL is <code>https://www.facebook.com/123456789012345/videos/235235235234235</code>, the page ID is <code>123456789012345</code>.</li>
         </ol>
     </div>
     <?php
