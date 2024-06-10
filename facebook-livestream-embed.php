@@ -118,9 +118,11 @@ function fetch_live_video($page_id, $access_token) {
     $live_video_url = "https://graph.facebook.com/$page_id/live_videos?access_token=$access_token";
     $response = wp_remote_get($live_video_url);
     if (is_wp_error($response)) {
+        error_log('Live Video Fetch Error: ' . $response->get_error_message());
         return null;
     }
     $body = wp_remote_retrieve_body($response);
+    error_log('Live Video Response: ' . $body); // Log the response for debugging
     $data = json_decode($body, true);
 
     if (isset($data['data']) && !empty($data['data'])) {
@@ -133,9 +135,11 @@ function fetch_recent_video($page_id, $access_token) {
     $recent_video_url = "https://graph.facebook.com/$page_id/videos?access_token=$access_token";
     $response = wp_remote_get($recent_video_url);
     if (is_wp_error($response)) {
+        error_log('Recent Video Fetch Error: ' . $response->get_error_message());
         return null;
     }
     $body = wp_remote_retrieve_body($response);
+    error_log('Recent Video Response: ' . $body); // Log the response for debugging
     $data = json_decode($body, true);
 
     if (isset($data['data']) && !empty($data['data'])) {
