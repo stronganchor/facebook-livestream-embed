@@ -3,7 +3,7 @@
 Plugin Name: Facebook Live Stream Embed
 Plugin URI: https://github.com/stronganchor/facebook-livestream-embed/
 Description: Embeds a Facebook live stream using a shortcode.
-Version: 1.0.0
+Version: 1.0.1
 Author: Strong Anchor Tech
 Author URI: https://stronganchortech.com/
 */
@@ -130,9 +130,48 @@ function facebook_live_stream_shortcode($atts) {
     }
 
     $access_token = $app_id . '|' . $app_secret;
+
+    // Function to fetch the live video
+    function fetch_live_video($page_id, $access_token) {
+        $live_video_url = "https://graph.facebook.com/$page_id/live_videos?access_token=$access_token";
+        $response = wp_remote_get($live_video_url);
+        $body = wp_remote_retrieve_body($response);
+        $data = json_decode($body, true);
+
+        if (isset($data['data']) && !empty($data['data'])) {
+            return $data['data'][0]['id'];
+        }
+        return null;
+    }
+
+    // Function to fetch the most recent video
+    function fetch_recent_video($page_id, $access_token) {
+        $recent_video_url = "https://graph.facebook.com/$page_id/videos?access_token=$access_token";
+        $response = wp_remote_get($recent_video_url);
+        $body = wp_remote_retrieve_body($response);
+        $data = json_decode($body, true);
+
+        if (isset($data['data']) && !empty($data['data'])) {
+            return $data['data'][0]['id'];
+        }
+        return null;
+    }
+
+    // Check for live video first
+    $video_id = fetch_live_video($page_id, $access_token);
+
+    // If no live video, check for the most recent video
+    if (is_null($video_id)) {
+        $video_id = fetch_recent_video($page_id, $access_token);
+    }
+
+    if (is_null($video_id)) {
+        return '<p>No live stream or recent video found.</p>';
+    }
+
     $embed_code = '<div id="fb-root"></div>';
     $embed_code .= '<script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js#xfbml=1&version=v10.0&appId=' . esc_attr($app_id) . '&autoLogAppEvents=1" nonce="abcdef"></script>';
-    $embed_code .= '<div class="fb-video" data-href="https://www.facebook.com/' . esc_attr($page_id) . '/live" data-width="auto" data-show-text="false"></div>';
+    $embed_code .= '<div class="fb-video" data-href="https://www.facebook.com/' . esc_attr($page_id) . '/videos/' . $video_id . '" data-width="auto" data-show-text="false"></div>';
 
     return $embed_code;
 }
