@@ -114,7 +114,6 @@ function facebook_live_stream_page_id_callback() {
     $page_id = get_option('facebook_live_stream_page_id');
     echo '<input type="text" name="facebook_live_stream_page_id" value="' . esc_attr($page_id) . '" size="50" />';
 }
-
 function fetch_live_video($page_id, $access_token) {
     $live_video_url = "https://graph.facebook.com/$page_id/live_videos?access_token=$access_token";
     $response = wp_remote_get($live_video_url);
@@ -179,4 +178,3 @@ function facebook_live_stream_shortcode($atts) {
     return $embed_code;
 }
 add_shortcode('facebook_live_stream', 'facebook_live_stream_shortcode');
-
