@@ -115,7 +115,36 @@ function facebook_live_stream_page_id_callback() {
     echo '<input type="text" name="facebook_live_stream_page_id" value="' . esc_attr($page_id) . '" size="50" />';
 }
 
-// Shortcode callback
+function fetch_live_video($page_id, $access_token) {
+    $live_video_url = "https://graph.facebook.com/$page_id/live_videos?access_token=$access_token";
+    $response = wp_remote_get($live_video_url);
+    if (is_wp_error($response)) {
+        return null;
+    }
+    $body = wp_remote_retrieve_body($response);
+    $data = json_decode($body, true);
+
+    if (isset($data['data']) && !empty($data['data'])) {
+        return $data['data'][0]['id'];
+    }
+    return null;
+}
+
+function fetch_recent_video($page_id, $access_token) {
+    $recent_video_url = "https://graph.facebook.com/$page_id/videos?access_token=$access_token";
+    $response = wp_remote_get($recent_video_url);
+    if (is_wp_error($response)) {
+        return null;
+    }
+    $body = wp_remote_retrieve_body($response);
+    $data = json_decode($body, true);
+
+    if (isset($data['data']) && !empty($data['data'])) {
+        return $data['data'][0]['id'];
+    }
+    return null;
+}
+
 function facebook_live_stream_shortcode($atts) {
     $page_id = isset($atts['page_id']) ? $atts['page_id'] : get_option('facebook_live_stream_page_id');
     $app_id = get_option('facebook_live_stream_app_id');
@@ -130,32 +159,6 @@ function facebook_live_stream_shortcode($atts) {
     }
 
     $access_token = $app_id . '|' . $app_secret;
-
-    // Function to fetch the live video
-    function fetch_live_video($page_id, $access_token) {
-        $live_video_url = "https://graph.facebook.com/$page_id/live_videos?access_token=$access_token";
-        $response = wp_remote_get($live_video_url);
-        $body = wp_remote_retrieve_body($response);
-        $data = json_decode($body, true);
-
-        if (isset($data['data']) && !empty($data['data'])) {
-            return $data['data'][0]['id'];
-        }
-        return null;
-    }
-
-    // Function to fetch the most recent video
-    function fetch_recent_video($page_id, $access_token) {
-        $recent_video_url = "https://graph.facebook.com/$page_id/videos?access_token=$access_token";
-        $response = wp_remote_get($recent_video_url);
-        $body = wp_remote_retrieve_body($response);
-        $data = json_decode($body, true);
-
-        if (isset($data['data']) && !empty($data['data'])) {
-            return $data['data'][0]['id'];
-        }
-        return null;
-    }
 
     // Check for live video first
     $video_id = fetch_live_video($page_id, $access_token);
@@ -176,3 +179,4 @@ function facebook_live_stream_shortcode($atts) {
     return $embed_code;
 }
 add_shortcode('facebook_live_stream', 'facebook_live_stream_shortcode');
+
