@@ -3,7 +3,7 @@
 Plugin Name: Facebook Live Stream Embed
 Plugin URI: https://github.com/stronganchor/facebook-livestream-embed/
 Description: Embeds a Facebook live stream using a shortcode.
-Version: 1.0.1
+Version: 1.0.2
 Author: Strong Anchor Tech
 Author URI: https://stronganchortech.com/
 */
@@ -62,6 +62,7 @@ function facebook_live_stream_register_settings() {
     register_setting('facebook_live_stream_settings', 'facebook_live_stream_app_id');
     register_setting('facebook_live_stream_settings', 'facebook_live_stream_app_secret');
     register_setting('facebook_live_stream_settings', 'facebook_live_stream_page_id');
+    register_setting('facebook_live_stream_settings', 'facebook_live_stream_access_token');
     add_settings_section(
         'facebook_live_stream_section',
         'API Credentials',
@@ -86,6 +87,13 @@ function facebook_live_stream_register_settings() {
         'facebook_live_stream_page_id',
         'Default Page ID',
         'facebook_live_stream_page_id_callback',
+        'facebook-live-stream-settings',
+        'facebook_live_stream_section'
+    );
+    add_settings_field(
+        'facebook_live_stream_access_token',
+        'Access Token (optional)',
+        'facebook_live_stream_access_token_callback',
         'facebook-live-stream-settings',
         'facebook_live_stream_section'
     );
@@ -115,6 +123,12 @@ function facebook_live_stream_page_id_callback() {
     echo '<input type="text" name="facebook_live_stream_page_id" value="' . esc_attr($page_id) . '" size="50" />';
 }
 
+function facebook_live_stream_access_token_callback() {
+    $access_token = get_option('facebook_live_stream_access_token');
+    echo '<input type="text" name="facebook_live_stream_access_token" value="' . esc_attr($access_token) . '" size="50" />';
+    echo '<p class="description">Leave this field blank to use the App ID and App Secret method.</p>';
+}
+
 function fetch_live_video($page_id, $access_token) {
     $live_video_url = "https://graph.facebook.com/$page_id/live_videos?access_token=$access_token";
     $response = wp_remote_get($live_video_url);
@@ -137,15 +151,21 @@ function fetch_recent_video($page_id, $access_token) {
 
 function facebook_live_stream_shortcode($atts) {
     $page_id = isset($atts['page_id']) ? $atts['page_id'] : get_option('facebook_live_stream_page_id');
-    $app_id = get_option('facebook_live_stream_app_id');
-    $app_secret = get_option('facebook_live_stream_app_secret');
+    $access_token = get_option('facebook_live_stream_access_token');
 
     if (empty($page_id)) {
         return '<p>Please provide a page ID or set a default page in the plugin settings.</p>';
     }
 
-    if (empty($app_id) || empty($app_secret)) {
-        return '<p>Please provide valid Facebook App credentials in the plugin settings.</p>';
+    if (empty($access_token)) {
+        $app_id = get_option('facebook_live_stream_app_id');
+        $app_secret = get_option('facebook_live_stream_app_secret');
+
+        if (empty($app_id) || empty($app_secret)) {
+            return '<p>Please provide valid Facebook App credentials in the plugin settings.</p>';
+        }
+
+        $access_token = $app_id . '|' . $app_secret;
     }
 
     // Generate App Access Token
