@@ -53,6 +53,18 @@ function facebook_live_stream_settings_page_content() {
             <li>Look at the URL of one of the videos. The page ID is the first string of numbers after the ".com" part of the URL.</li>
             <li>For example, if the URL is <code>https://www.facebook.com/123456789012345/videos/235235235234235</code>, the page ID is <code>123456789012345</code>.</li>
         </ol>
+        <h3>How to Get the Access Token</h3>
+        <p>Note: You must be an admin of the Facebook page to generate an access token.</p>
+        <ol>
+            <li>Go to the <a href="https://developers.facebook.com/tools/explorer/" target="_blank">Facebook Graph API Explorer</a>.</li>
+            <li>In the top-left corner, select your app from the dropdown menu.</li>
+            <li>Click on the "Get Token" button and select "Get User Access Token".</li>
+            <li>In the permissions window, select the following permissions: <code>pages_show_list</code>, <code>pages_read_engagement</code>, <code>pages_read_user_content</code>.</li>
+            <li>Click "Generate Access Token" and allow any prompts that appear.</li>
+            <li>Click "Get Token" again and choose "Get Page Access Token".</li>
+            <li>Select the page you want to access from the dropdown list. This will generate a Page Access Token.</li>
+            <li>Copy the generated access token and paste it into the "Access Token" field below.</li>
+        </ol>
     </div>
     <?php
 }
@@ -123,6 +135,7 @@ function facebook_live_stream_page_id_callback() {
     echo '<input type="text" name="facebook_live_stream_page_id" value="' . esc_attr($page_id) . '" size="50" />';
 }
 
+// Access Token field callback
 function facebook_live_stream_access_token_callback() {
     $access_token = get_option('facebook_live_stream_access_token');
     echo '<input type="text" name="facebook_live_stream_access_token" value="' . esc_attr($access_token) . '" size="50" />';
@@ -167,9 +180,6 @@ function facebook_live_stream_shortcode($atts) {
 
         $access_token = $app_id . '|' . $app_secret;
     }
-
-    // Generate App Access Token
-    $access_token = $app_id . '|' . $app_secret;
 
     // Check for live video first
     $live_video_response = fetch_live_video($page_id, $access_token);
