@@ -3,7 +3,7 @@
 Plugin Name: Facebook Live Stream Embed
 Plugin URI: https://github.com/stronganchor/facebook-livestream-embed/
 Description: Embeds a Facebook live stream using a shortcode.
-Version: 1.0.2
+Version: 1.0.3
 Author: Strong Anchor Tech
 Author URI: https://stronganchortech.com/
 */
@@ -187,6 +187,7 @@ function facebook_live_stream_shortcode($atts) {
         $video_data = json_decode(substr($live_video_response, strlen('Live Video Response: ')), true);
         if (isset($video_data['data']) && !empty($video_data['data'])) {
             $video_id = $video_data['data'][0]['id'];
+            $embed_html = $video_data['data'][0]['embed_html'];
         } else {
             $video_id = null;
         }
@@ -201,6 +202,7 @@ function facebook_live_stream_shortcode($atts) {
             $video_data = json_decode(substr($recent_video_response, strlen('Recent Video Response: ')), true);
             if (isset($video_data['data']) && !empty($video_data['data'])) {
                 $video_id = $video_data['data'][0]['id'];
+                $embed_html = $video_data['data'][0]['embed_html'];
             } else {
                 $video_id = null;
             }
@@ -213,10 +215,6 @@ function facebook_live_stream_shortcode($atts) {
         return '<p>No live stream or recent video found.</p>' . '<br>' . $live_video_response . '<br>' . $recent_video_response;
     }
 
-    $embed_code = '<div id="fb-root"></div>';
-    $embed_code .= '<script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js#xfbml=1&version=v10.0&appId=' . esc_attr($app_id) . '&autoLogAppEvents=1" nonce="abcdef"></script>';
-    $embed_code .= '<div class="fb-video" data-href="https://www.facebook.com/' . esc_attr($page_id) . '/videos/' . $video_id . '" data-width="auto" data-show-text="false"></div>';
-
-    return $embed_code;
+    return $embed_html;
 }
 add_shortcode('facebook_live_stream', 'facebook_live_stream_shortcode');
