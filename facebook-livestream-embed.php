@@ -61,9 +61,15 @@ function facebook_live_stream_settings_page_content() {
             <li>Click on the "Get Token" button and select "Get User Access Token".</li>
             <li>In the permissions window, select the following permissions: <code>pages_show_list</code>, <code>pages_read_engagement</code>, <code>pages_read_user_content</code>.</li>
             <li>Click "Generate Access Token" and allow any prompts that appear.</li>
-            <li>Click "Get Token" again and choose "Get Page Access Token".</li>
-            <li>Select the page you want to access from the dropdown list. This will generate a Page Access Token.</li>
-            <li>Copy the generated access token and paste it into the "Access Token" field below.</li>
+            <li>Copy the short-lived token generated.</li>
+            <li>Exchange the short-lived token for a long-lived token by pasting the following URL into your browser’s address bar:</li>
+            <code>https://graph.facebook.com/v10.0/oauth/access_token?grant_type=fb_exchange_token&client_id=YOUR_APP_ID&client_secret=YOUR_APP_SECRET&fb_exchange_token=SHORT_LIVED_TOKEN</code>
+            <li>Replace <code>YOUR_APP_ID</code>, <code>YOUR_APP_SECRET</code>, and <code>SHORT_LIVED_TOKEN</code> with your actual values and submit the request.</li>
+            <li>This will return a long-lived user access token.</li>
+            <li>Use the long-lived user access token to get a page access token by pasting the following URL into your browser’s address bar:</li>
+            <code>https://graph.facebook.com/PAGE_ID?fields=access_token&access_token=LONG_LIVED_USER_ACCESS_TOKEN</code>
+            <li>Replace <code>PAGE_ID</code> and <code>LONG_LIVED_USER_ACCESS_TOKEN</code> with your actual values and submit the request.</li>
+            <li>Copy the generated long-lived page access token and paste it into the "Access Token" field below.</li>
         </ol>
     </div>
     <?php
