@@ -3,7 +3,7 @@
 Plugin Name: Facebook Live Stream Embed
 Plugin URI: https://github.com/stronganchor/facebook-livestream-embed/
 Description: Embeds a Facebook live stream using a shortcode.
-Version: 1.0.3
+Version: 1.0.4
 Author: Strong Anchor Tech
 Author URI: https://stronganchortech.com/
 */
@@ -81,6 +81,7 @@ function facebook_live_stream_register_settings() {
     register_setting('facebook_live_stream_settings', 'facebook_live_stream_app_secret');
     register_setting('facebook_live_stream_settings', 'facebook_live_stream_page_id');
     register_setting('facebook_live_stream_settings', 'facebook_live_stream_access_token');
+    register_setting('facebook_live_stream_settings', 'facebook_live_stream_access_token_expires');
     add_settings_section(
         'facebook_live_stream_section',
         'API Credentials',
@@ -115,6 +116,13 @@ function facebook_live_stream_register_settings() {
         'facebook-live-stream-settings',
         'facebook_live_stream_section'
     );
+    add_settings_field(
+        'facebook_live_stream_access_token_expires',
+        'Access Token Expiry',
+        'facebook_live_stream_access_token_expires_callback',
+        'facebook-live-stream-settings',
+        'facebook_live_stream_section'
+    );
 }
 add_action('admin_init', 'facebook_live_stream_register_settings');
 
@@ -146,6 +154,53 @@ function facebook_live_stream_access_token_callback() {
     $access_token = get_option('facebook_live_stream_access_token');
     echo '<input type="text" name="facebook_live_stream_access_token" value="' . esc_attr($access_token) . '" size="50" />';
     echo '<p class="description">Leave this field blank to use the App ID and App Secret method.</p>';
+}
+
+// Access Token Expiry field callback
+function facebook_live_stream_access_token_expires_callback() {
+    $access_token_expires = get_option('facebook_live_stream_access_token_expires');
+    echo '<input type="text" name="facebook_live_stream_access_token_expires" value="' . esc_attr($access_token_expires) . '" size="50" />';
+}
+
+// Check if token is expired
+function is_access_token_expired() {
+    $expires = get_option('facebook_live_stream_access_token_expires');
+    if ($expires && strtotime($expires) < strtotime('+1 week')) {
+        return true;
+    }
+    return false;
+}
+
+// Refresh token
+function refresh_access_token() {
+    $app_id = get_option('facebook_live_stream_app_id');
+    $app_secret = get_option('facebook_live_stream_app_secret');
+    $access_token = get_option('facebook_live_stream_access_token');
+    
+    if (empty($app_id) || empty($app_secret) || empty($access_token)) {
+        return;
+    }
+
+    $url = "https://graph.facebook.com/v10.0/oauth/access_token?grant_type=fb_exchange_token&client_id=$app_id&client_secret=$app_secret&fb_exchange_token=$access_token";
+    $response = wp_remote_get($url);
+    if (is_wp_error($response)) {
+        return;
+    }
+
+    $body = wp_remote_retrieve_body($response);
+    $data = json_decode($body, true);
+
+    if (isset($data['access_token'])) {
+        update_option('facebook_live_stream_access_token', $data['access_token']);
+        update_option('facebook_live_stream_access_token_expires', date('Y-m-d H:i:s', time() + $data['expires_in']));
+    }
+}
+
+// Check and refresh token if needed
+function check_and_refresh_access_token() {
+    if (is_access_token_expired()) {
+        refresh_access_token();
+    }
 }
 
 function fetch_live_video($page_id, $access_token) {
@@ -187,6 +242,8 @@ function facebook_live_stream_shortcode($atts) {
         $access_token = $app_id . '|' . $app_secret;
     }
 
+    check_and_refresh_access_token();
+
     // Check for live video first
     $live_video_response = fetch_live_video($page_id, $access_token);
     if (strpos($live_video_response, 'Live Video Response:') === 0) {
@@ -205,7 +262,7 @@ function facebook_live_stream_shortcode($atts) {
     if (is_null($video_id)) {
         $recent_video_response = fetch_recent_video($page_id, $access_token);
         if (strpos($recent_video_response, 'Recent Video Response:') === 0) {
-            $video_data = json_decode(substr($recent_video_response, strlen('Recent Video Response: ')), true);
+            $video_data = json_decode(substr($recent_video_response, strlen('Recent Video Response: '')), true);
             if (isset($video_data['data']) && !empty($video_data['data'])) {
                 $video_id = $video_data['data'][0]['id'];
                 $embed_html = $video_data['data'][0]['embed_html'];
