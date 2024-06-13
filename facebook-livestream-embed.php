@@ -153,7 +153,7 @@ function facebook_live_stream_access_token_callback() {
 // Check if token is expired
 function is_access_token_expired() {
     $expires = get_option('facebook_live_stream_access_token_expires');
-    if ($expires && strtotime($expires) < strtotime('+3 days')) {
+    if ($expires && strtotime($expires) < strtotime('+4 days')) {
         return true;
     }
     return false;
@@ -172,7 +172,12 @@ function refresh_access_token() {
     $url = "https://graph.facebook.com/v10.0/oauth/access_token?grant_type=fb_exchange_token&client_id=$app_id&client_secret=$app_secret&fb_exchange_token=$access_token";
     $response = wp_remote_get($url);
     if (is_wp_error($response)) {
-        wp_mail(get_option('admin_email'), 'Facebook Access Token Refresh Failed', 'The access token refresh failed. Please update the token manually.');
+        $error_message = $response->get_error_message();
+        wp_mail(
+            get_option('admin_email'), 
+            'Facebook Access Token Refresh Failed', 
+            "The access token refresh failed with the following error: $error_message.\n\nPlease try to manually refresh the token using the following URL:\n$url"
+        );
         return;
     }
 
