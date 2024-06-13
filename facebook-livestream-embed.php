@@ -3,7 +3,7 @@
 Plugin Name: Facebook Live Stream Embed
 Plugin URI: https://github.com/stronganchor/facebook-livestream-embed/
 Description: Embeds a Facebook live stream using a shortcode.
-Version: 1.0.4
+Version: 1.0.6
 Author: Strong Anchor Tech
 Author URI: https://stronganchortech.com/
 */
@@ -111,18 +111,12 @@ function facebook_live_stream_register_settings() {
     );
     add_settings_field(
         'facebook_live_stream_access_token',
-        'Access Token (optional)',
+        'Access Token',
         'facebook_live_stream_access_token_callback',
         'facebook-live-stream-settings',
         'facebook_live_stream_section'
     );
-    add_settings_field(
-        'facebook_live_stream_access_token_expires',
-        'Access Token Expiry',
-        'facebook_live_stream_access_token_expires_callback',
-        'facebook-live-stream-settings',
-        'facebook_live_stream_section'
-    );
+    // Hide the access token expiry field from the settings page
 }
 add_action('admin_init', 'facebook_live_stream_register_settings');
 
@@ -156,16 +150,10 @@ function facebook_live_stream_access_token_callback() {
     echo '<p class="description">Leave this field blank to use the App ID and App Secret method.</p>';
 }
 
-// Access Token Expiry field callback
-function facebook_live_stream_access_token_expires_callback() {
-    $access_token_expires = get_option('facebook_live_stream_access_token_expires');
-    echo '<input type="text" name="facebook_live_stream_access_token_expires" value="' . esc_attr($access_token_expires) . '" size="50" />';
-}
-
 // Check if token is expired
 function is_access_token_expired() {
     $expires = get_option('facebook_live_stream_access_token_expires');
-    if ($expires && strtotime($expires) < strtotime('+1 week')) {
+    if ($expires && strtotime($expires) < strtotime('+3 days')) {
         return true;
     }
     return false;
@@ -184,6 +172,7 @@ function refresh_access_token() {
     $url = "https://graph.facebook.com/v10.0/oauth/access_token?grant_type=fb_exchange_token&client_id=$app_id&client_secret=$app_secret&fb_exchange_token=$access_token";
     $response = wp_remote_get($url);
     if (is_wp_error($response)) {
+        wp_mail(get_option('admin_email'), 'Facebook Access Token Refresh Failed', 'The access token refresh failed. Please update the token manually.');
         return;
     }
 
@@ -193,6 +182,13 @@ function refresh_access_token() {
     if (isset($data['access_token'])) {
         update_option('facebook_live_stream_access_token', $data['access_token']);
         update_option('facebook_live_stream_access_token_expires', date('Y-m-d H:i:s', time() + $data['expires_in']));
+
+        // Schedule the next token check
+        if (!wp_next_scheduled('facebook_live_stream_check_token')) {
+            wp_schedule_event(time() + ($data['expires_in'] - (3 * 24 * 60 * 60)), 'daily', 'facebook_live_stream_check_token');
+        }
+    } else {
+        wp_mail(get_option('admin_email'), 'Facebook Access Token Refresh Failed', 'The access token refresh failed. Please update the token manually.');
     }
 }
 
@@ -202,6 +198,21 @@ function check_and_refresh_access_token() {
         refresh_access_token();
     }
 }
+add_action('facebook_live_stream_check_token', 'check_and_refresh_access_token');
+
+// Schedule the token check event on plugin activation
+function facebook_live_stream_activate() {
+    if (!wp_next_scheduled('facebook_live_stream_check_token')) {
+        wp_schedule_event(time(), 'daily', 'facebook_live_stream_check_token');
+    }
+}
+register_activation_hook(__FILE__, 'facebook_live_stream_activate');
+
+// Clear the scheduled event on plugin deactivation
+function facebook_live_stream_deactivate() {
+    wp_clear_scheduled_hook('facebook_live_stream_check_token');
+}
+register_deactivation_hook(__FILE__, 'facebook_live_stream_deactivate');
 
 function fetch_live_video($page_id, $access_token) {
     $live_video_url = "https://graph.facebook.com/$page_id/live_videos?access_token=$access_token";
@@ -242,6 +253,7 @@ function facebook_live_stream_shortcode($atts) {
         $access_token = $app_id . '|' . $app_secret;
     }
 
+    // Check and refresh the token
     check_and_refresh_access_token();
 
     // Check for live video first
