@@ -262,7 +262,7 @@ function facebook_live_stream_shortcode($atts) {
     if (is_null($video_id)) {
         $recent_video_response = fetch_recent_video($page_id, $access_token);
         if (strpos($recent_video_response, 'Recent Video Response:') === 0) {
-            $video_data = json_decode(substr($recent_video_response, strlen('Recent Video Response: '')), true);
+            $video_data = json_decode(substr($recent_video_response, strlen('Recent Video Response: ')), true);
             if (isset($video_data['data']) && !empty($video_data['data'])) {
                 $video_id = $video_data['data'][0]['id'];
                 $embed_html = $video_data['data'][0]['embed_html'];
