@@ -2,13 +2,15 @@
 /*
 Plugin Name: Facebook Live Stream Embed
 Plugin URI: https://github.com/stronganchor/facebook-livestream-embed/
-Description: Embeds a Facebook live stream using a shortcode.
-Version: 1.0.6
+Description: Embeds a Facebook live stream using a shortcode, with auto-refresh of page access tokens.
+Version: 1.0.7
 Author: Strong Anchor Tech
 Author URI: https://stronganchortech.com/
 */
 
-// Add settings page
+// ─────────────────────────────────────────────────────────────────────────────
+// 1) Settings Page & Registration
+// ─────────────────────────────────────────────────────────────────────────────
 function facebook_live_stream_settings_page() {
     add_options_page(
         'Facebook Live Stream Settings',
@@ -20,15 +22,6 @@ function facebook_live_stream_settings_page() {
 }
 add_action('admin_menu', 'facebook_live_stream_settings_page');
 
-// Add settings link to plugin page
-function facebook_live_stream_settings_link($links) {
-    $settings_link = '<a href="' . admin_url('options-general.php?page=facebook-live-stream-settings') . '">Settings</a>';
-    array_unshift($links, $settings_link);
-    return $links;
-}
-add_filter('plugin_action_links_' . plugin_basename(__FILE__), 'facebook_live_stream_settings_link');
-
-// Settings page content
 function facebook_live_stream_settings_page_content() {
     ?>
     <div class="wrap">
@@ -75,226 +68,245 @@ function facebook_live_stream_settings_page_content() {
     <?php
 }
 
-// Register settings
 function facebook_live_stream_register_settings() {
     register_setting('facebook_live_stream_settings', 'facebook_live_stream_app_id');
     register_setting('facebook_live_stream_settings', 'facebook_live_stream_app_secret');
     register_setting('facebook_live_stream_settings', 'facebook_live_stream_page_id');
     register_setting('facebook_live_stream_settings', 'facebook_live_stream_access_token');
     register_setting('facebook_live_stream_settings', 'facebook_live_stream_access_token_expires');
+    register_setting('facebook_live_stream_settings', 'facebook_live_stream_user_token');
+
     add_settings_section(
         'facebook_live_stream_section',
         'API Credentials',
-        'facebook_live_stream_section_callback',
+        function() {
+            echo '<p>Enter your App ID, App Secret, default Page ID, and your long-lived **user** access token below:</p>';
+        },
         'facebook-live-stream-settings'
     );
+
     add_settings_field(
         'facebook_live_stream_app_id',
         'Facebook App ID',
-        'facebook_live_stream_app_id_callback',
+        function() {
+            $v = get_option('facebook_live_stream_app_id');
+            echo "<input type='text' name='facebook_live_stream_app_id' value='" . esc_attr($v) . "' size='50' />";
+        },
         'facebook-live-stream-settings',
         'facebook_live_stream_section'
     );
     add_settings_field(
         'facebook_live_stream_app_secret',
         'Facebook App Secret',
-        'facebook_live_stream_app_secret_callback',
+        function() {
+            $v = get_option('facebook_live_stream_app_secret');
+            echo "<input type='text' name='facebook_live_stream_app_secret' value='" . esc_attr($v) . "' size='50' />";
+        },
         'facebook-live-stream-settings',
         'facebook_live_stream_section'
     );
     add_settings_field(
         'facebook_live_stream_page_id',
         'Default Page ID',
-        'facebook_live_stream_page_id_callback',
+        function() {
+            $v = get_option('facebook_live_stream_page_id');
+            echo "<input type='text' name='facebook_live_stream_page_id' value='" . esc_attr($v) . "' size='50' />";
+        },
         'facebook-live-stream-settings',
         'facebook_live_stream_section'
     );
     add_settings_field(
         'facebook_live_stream_access_token',
-        'Access Token',
-        'facebook_live_stream_access_token_callback',
+        'Page Access Token',
+        function() {
+            $v = get_option('facebook_live_stream_access_token');
+            echo "<input type='text' name='facebook_live_stream_access_token' value='" . esc_attr($v) . "' size='50' />";
+            echo '<p class="description">Leave blank to use App ID &amp; Secret method.</p>';
+        },
         'facebook-live-stream-settings',
         'facebook_live_stream_section'
     );
-    // Hide the access token expiry field from the settings page
+    add_settings_field(
+        'facebook_live_stream_user_token',
+        'Long-Lived User Token',
+        function() {
+            $v = get_option('facebook_live_stream_user_token');
+            echo "<input type='text' name='facebook_live_stream_user_token' value='" . esc_attr($v) . "' size='50' />";
+            echo '<p class="description">Paste the long-lived **user** access token you generated (step 8 of the docs).</p>';
+        },
+        'facebook-live-stream-settings',
+        'facebook_live_stream_section'
+    );
 }
 add_action('admin_init', 'facebook_live_stream_register_settings');
 
-// Section callback
-function facebook_live_stream_section_callback() {
-    echo '<p>Enter your Facebook App ID, App Secret, and default page ID below:</p>';
-}
 
-// App ID field callback
-function facebook_live_stream_app_id_callback() {
-    $app_id = get_option('facebook_live_stream_app_id');
-    echo '<input type="text" name="facebook_live_stream_app_id" value="' . esc_attr($app_id) . '" size="50" />';
-}
-
-// App Secret field callback
-function facebook_live_stream_app_secret_callback() {
-    $app_secret = get_option('facebook_live_stream_app_secret');
-    echo '<input type="text" name="facebook_live_stream_app_secret" value="' . esc_attr($app_secret) . '" size="50" />';
-}
-
-// Default page ID field callback
-function facebook_live_stream_page_id_callback() {
-    $page_id = get_option('facebook_live_stream_page_id');
-    echo '<input type="text" name="facebook_live_stream_page_id" value="' . esc_attr($page_id) . '" size="50" />';
-}
-
-// Access Token field callback
-function facebook_live_stream_access_token_callback() {
-    $access_token = get_option('facebook_live_stream_access_token');
-    echo '<input type="text" name="facebook_live_stream_access_token" value="' . esc_attr($access_token) . '" size="50" />';
-    echo '<p class="description">Leave this field blank to use the App ID and App Secret method.</p>';
-}
-
-// Check if token is expired
+// ─────────────────────────────────────────────────────────────────────────────
+// 2) Expiry Check & Refresh Logic
+// ─────────────────────────────────────────────────────────────────────────────
 function is_access_token_expired() {
     $expires = get_option('facebook_live_stream_access_token_expires');
-    if ($expires && strtotime($expires) < strtotime('+4 days')) {
+    // Treat “no expiry” or any expiry < now+4 days as expired
+    if ( ! $expires
+      || strtotime($expires) < time() + 4 * DAY_IN_SECONDS
+    ) {
         return true;
     }
     return false;
 }
 
-// Refresh token
 function refresh_access_token() {
-    $app_id = get_option('facebook_live_stream_app_id');
+    $app_id     = get_option('facebook_live_stream_app_id');
     $app_secret = get_option('facebook_live_stream_app_secret');
-    $access_token = get_option('facebook_live_stream_access_token');
-    
-    if (empty($app_id) || empty($app_secret) || empty($access_token)) {
+    $user_token = get_option('facebook_live_stream_user_token');
+    $page_id    = get_option('facebook_live_stream_page_id');
+
+    if ( empty($app_id) || empty($app_secret) || empty($user_token) || empty($page_id) ) {
         return;
     }
 
-    $url = "https://graph.facebook.com/v10.0/oauth/access_token?grant_type=fb_exchange_token&client_id=$app_id&client_secret=$app_secret&fb_exchange_token=$access_token";
-    $response = wp_remote_get($url);
-    if (is_wp_error($response)) {
-        $error_message = $response->get_error_message();
+    // 1) Exchange short-lived user token for new long-lived user token
+    $url1 = "https://graph.facebook.com/oauth/access_token"
+          . "?grant_type=fb_exchange_token"
+          . "&client_id={$app_id}"
+          . "&client_secret={$app_secret}"
+          . "&fb_exchange_token={$user_token}";
+    $resp1 = wp_remote_get($url1);
+    if ( is_wp_error($resp1) ) {
         wp_mail(
-            get_option('admin_email'), 
-            'Facebook Access Token Refresh Failed', 
-            "The access token refresh failed with the following error: $error_message.\n\nPlease try to manually refresh the token using the following URL:\n$url"
+            get_option('admin_email'),
+            'FB Token Refresh Error',
+            'Error fetching long-lived user token: ' . $resp1->get_error_message()
         );
         return;
     }
+    $data1 = json_decode(wp_remote_retrieve_body($resp1), true);
+    if ( empty($data1['access_token']) ) {
+        wp_mail(
+            get_option('admin_email'),
+            'FB Token Refresh Error',
+            'No user token returned. Raw response: ' . wp_remote_retrieve_body($resp1)
+        );
+        return;
+    }
+    $new_user_token = $data1['access_token'];
+    $expires_in     = ! empty($data1['expires_in'])
+                      ? intval($data1['expires_in'])
+                      : 60 * DAY_IN_SECONDS; // fallback to 60 days
+    update_option('facebook_live_stream_user_token', $new_user_token);
 
-    $body = wp_remote_retrieve_body($response);
-    $data = json_decode($body, true);
+    // 2) Fetch a fresh page token using that new user token
+    $url2 = "https://graph.facebook.com/{$page_id}"
+          . "?fields=access_token"
+          . "&access_token={$new_user_token}";
+    $resp2 = wp_remote_get($url2);
+    if ( is_wp_error($resp2) ) {
+        wp_mail(
+            get_option('admin_email'),
+            'FB Token Refresh Error',
+            'Error fetching page token: ' . $resp2->get_error_message()
+        );
+        return;
+    }
+    $data2 = json_decode(wp_remote_retrieve_body($resp2), true);
+    if ( ! empty($data2['access_token']) ) {
+        update_option('facebook_live_stream_access_token', $data2['access_token']);
+        // store new expiry timestamp
+        $ts = time() + $expires_in;
+        update_option('facebook_live_stream_access_token_expires', date('Y-m-d H:i:s', $ts));
 
-    if (isset($data['access_token'])) {
-        update_option('facebook_live_stream_access_token', $data['access_token']);
-        update_option('facebook_live_stream_access_token_expires', date('Y-m-d H:i:s', time() + $data['expires_in']));
-
-        // Schedule the next token check
-        if (!wp_next_scheduled('facebook_live_stream_check_token')) {
-            wp_schedule_event(time() + ($data['expires_in'] - (3 * 24 * 60 * 60)), 'daily', 'facebook_live_stream_check_token');
+        // ensure our daily hook is scheduled
+        if ( ! wp_next_scheduled('facebook_live_stream_check_token') ) {
+            // schedule first run at ~expires_in - 3 days, then every 24h
+            wp_schedule_event(time() + ($expires_in - 3 * DAY_IN_SECONDS), 'daily', 'facebook_live_stream_check_token');
         }
     } else {
-        wp_mail(get_option('admin_email'), 'Facebook Access Token Refresh Failed', 'The access token refresh failed. Please update the token manually.');
+        wp_mail(
+            get_option('admin_email'),
+            'FB Token Refresh Error',
+            'No page token returned. Raw response: ' . wp_remote_retrieve_body($resp2)
+        );
     }
 }
 
-// Check and refresh token if needed
+add_action('facebook_live_stream_check_token', 'check_and_refresh_access_token');
 function check_and_refresh_access_token() {
-    if (is_access_token_expired()) {
+    if ( is_access_token_expired() ) {
         refresh_access_token();
     }
 }
-add_action('facebook_live_stream_check_token', 'check_and_refresh_access_token');
 
-// Schedule the token check event on plugin activation
+// ─────────────────────────────────────────────────────────────────────────────
+// 3) Activation / Deactivation Hooks
+// ─────────────────────────────────────────────────────────────────────────────
 function facebook_live_stream_activate() {
-    if (!wp_next_scheduled('facebook_live_stream_check_token')) {
+    if ( ! wp_next_scheduled('facebook_live_stream_check_token') ) {
         wp_schedule_event(time(), 'daily', 'facebook_live_stream_check_token');
     }
 }
 register_activation_hook(__FILE__, 'facebook_live_stream_activate');
 
-// Clear the scheduled event on plugin deactivation
 function facebook_live_stream_deactivate() {
     wp_clear_scheduled_hook('facebook_live_stream_check_token');
 }
 register_deactivation_hook(__FILE__, 'facebook_live_stream_deactivate');
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4) Fetch & Shortcode
+// ─────────────────────────────────────────────────────────────────────────────
 function fetch_live_video($page_id, $access_token) {
-    $live_video_url = "https://graph.facebook.com/$page_id/live_videos?access_token=$access_token";
-    $response = wp_remote_get($live_video_url);
-    if (is_wp_error($response)) {
+    $url      = "https://graph.facebook.com/{$page_id}/live_videos?access_token={$access_token}";
+    $response = wp_remote_get($url);
+    if ( is_wp_error($response) ) {
         return 'Live Video Fetch Error: ' . $response->get_error_message();
     }
-    $body = wp_remote_retrieve_body($response);
-    return 'Live Video Response: ' . $body; // Display the response for debugging
+    return wp_remote_retrieve_body($response);
 }
 
 function fetch_recent_video($page_id, $access_token) {
-    $recent_video_url = "https://graph.facebook.com/$page_id/videos?access_token=$access_token";
-    $response = wp_remote_get($recent_video_url);
-    if (is_wp_error($response)) {
+    $url      = "https://graph.facebook.com/{$page_id}/videos?access_token={$access_token}";
+    $response = wp_remote_get($url);
+    if ( is_wp_error($response) ) {
         return 'Recent Video Fetch Error: ' . $response->get_error_message();
     }
-    $body = wp_remote_retrieve_body($response);
-    return 'Recent Video Response: ' . $body; // Display the response for debugging
+    return wp_remote_retrieve_body($response);
 }
 
 function facebook_live_stream_shortcode($atts) {
-    $page_id = isset($atts['page_id']) ? $atts['page_id'] : get_option('facebook_live_stream_page_id');
-    $access_token = get_option('facebook_live_stream_access_token');
-
-    if (empty($page_id)) {
-        return '<p>Please provide a page ID or set a default page in the plugin settings.</p>';
+    $page_id = $atts['page_id'] ?? get_option('facebook_live_stream_page_id');
+    $token   = get_option('facebook_live_stream_access_token');
+    if ( ! $page_id ) {
+        return '<p>Please set a default Page ID or pass one via shortcode.</p>';
     }
-
-    if (empty($access_token)) {
-        $app_id = get_option('facebook_live_stream_app_id');
+    if ( ! $token ) {
+        $app_id     = get_option('facebook_live_stream_app_id');
         $app_secret = get_option('facebook_live_stream_app_secret');
-
-        if (empty($app_id) || empty($app_secret)) {
-            return '<p>Please provide valid Facebook App credentials in the plugin settings.</p>';
+        if ( ! $app_id || ! $app_secret ) {
+            return '<p>Please configure your App ID &amp; Secret in settings.</p>';
         }
-
-        $access_token = $app_id . '|' . $app_secret;
+        $token = "{$app_id}|{$app_secret}";
     }
 
-    // Check and refresh the token
+    // ** auto-refresh on each shortcode render **
     check_and_refresh_access_token();
 
-    // Check for live video first
-    $live_video_response = fetch_live_video($page_id, $access_token);
-    if (strpos($live_video_response, 'Live Video Response:') === 0) {
-        $video_data = json_decode(substr($live_video_response, strlen('Live Video Response: ')), true);
-        if (isset($video_data['data']) && !empty($video_data['data'])) {
-            $video_id = $video_data['data'][0]['id'];
-            $embed_html = $video_data['data'][0]['embed_html'];
-        } else {
-            $video_id = null;
-        }
-    } else {
-        $video_id = null;
+    // try live
+    $live_raw   = fetch_live_video($page_id, $token);
+    $live_data  = json_decode($live_raw, true);
+    if ( ! empty($live_data['data']) ) {
+        $vid = $live_data['data'][0];
+        return $vid['embed_html'] ?? '';
     }
 
-    // If no live video, check for the most recent video
-    if (is_null($video_id)) {
-        $recent_video_response = fetch_recent_video($page_id, $access_token);
-        if (strpos($recent_video_response, 'Recent Video Response:') === 0) {
-            $video_data = json_decode(substr($recent_video_response, strlen('Recent Video Response: ')), true);
-            if (isset($video_data['data']) && !empty($video_data['data'])) {
-                $video_id = $video_data['data'][0]['id'];
-                $embed_html = $video_data['data'][0]['embed_html'];
-            } else {
-                $video_id = null;
-            }
-        } else {
-            $video_id = null;
-        }
+    // fallback to recent
+    $recent_raw  = fetch_recent_video($page_id, $token);
+    $recent_data = json_decode($recent_raw, true);
+    if ( ! empty($recent_data['data']) ) {
+        $vid = $recent_data['data'][0];
+        return $vid['embed_html'] ?? '';
     }
 
-    if (is_null($video_id)) {
-        return '<p>No live stream or recent video found.</p>' . '<br>' . $live_video_response . '<br>' . $recent_video_response;
-    }
-
-    return $embed_html;
+    return '<p>No live or recent video found.</p>';
 }
 add_shortcode('facebook_live_stream', 'facebook_live_stream_shortcode');
