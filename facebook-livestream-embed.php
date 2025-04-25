@@ -3,7 +3,7 @@
 Plugin Name: Facebook Live Stream Embed
 Plugin URI: https://github.com/stronganchor/facebook-livestream-embed/
 Description: Embeds a Facebook live stream using a shortcode, with auto-refresh of page access tokens.
-Version: 1.0.7
+Version: 1.0.8
 Author: Strong Anchor Tech
 Author URI: https://stronganchortech.com/
 */
