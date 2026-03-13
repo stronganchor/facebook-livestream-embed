@@ -4,9 +4,65 @@ Plugin Name: Facebook Live Stream Embed
 Plugin URI: https://github.com/stronganchor/facebook-livestream-embed/
 Description: Embeds a Facebook live stream using a shortcode, with auto-refresh of page access tokens.
 Version: 1.0.8
+Update URI: https://github.com/stronganchor/facebook-livestream-embed
 Author: Strong Anchor Tech
 Author URI: https://stronganchortech.com/
 */
+
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+function facebook_live_stream_get_update_branch() {
+    $branch = 'main';
+
+    if ( defined( 'FACEBOOK_LIVE_STREAM_UPDATE_BRANCH' ) && is_string( FACEBOOK_LIVE_STREAM_UPDATE_BRANCH ) ) {
+        $override = trim( FACEBOOK_LIVE_STREAM_UPDATE_BRANCH );
+        if ( '' !== $override ) {
+            $branch = $override;
+        }
+    }
+
+    return (string) apply_filters( 'facebook_live_stream_update_branch', $branch );
+}
+
+function facebook_live_stream_bootstrap_update_checker() {
+    $checker_file = plugin_dir_path( __FILE__ ) . 'plugin-update-checker/plugin-update-checker.php';
+    if ( ! file_exists( $checker_file ) ) {
+        return;
+    }
+
+    require_once $checker_file;
+
+    if ( ! class_exists( '\YahnisElsts\PluginUpdateChecker\v5\PucFactory' ) ) {
+        return;
+    }
+
+    $repo_url = (string) apply_filters( 'facebook_live_stream_update_repository', 'https://github.com/stronganchor/facebook-livestream-embed' );
+    $slug     = dirname( plugin_basename( __FILE__ ) );
+
+    $update_checker = \YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
+        $repo_url,
+        __FILE__,
+        $slug
+    );
+
+    $update_checker->setBranch( facebook_live_stream_get_update_branch() );
+
+    foreach ( array( 'FACEBOOK_LIVE_STREAM_GITHUB_TOKEN', 'STRONGANCHOR_GITHUB_TOKEN', 'ANCHOR_GITHUB_TOKEN' ) as $constant_name ) {
+        if ( ! defined( $constant_name ) || ! is_string( constant( $constant_name ) ) ) {
+            continue;
+        }
+
+        $token = trim( (string) constant( $constant_name ) );
+        if ( '' !== $token ) {
+            $update_checker->setAuthentication( $token );
+            break;
+        }
+    }
+}
+
+facebook_live_stream_bootstrap_update_checker();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1) Settings Page & Registration
