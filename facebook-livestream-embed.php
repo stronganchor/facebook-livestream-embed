@@ -3,7 +3,7 @@
 Plugin Name: Facebook Live Stream Embed
 Plugin URI: https://github.com/stronganchor/facebook-livestream-embed/
 Description: Embeds a Facebook live stream using a shortcode, with auto-refresh of page access tokens.
-Version: 1.0.9
+Version: 1.0.10
 Update URI: https://github.com/stronganchor/facebook-livestream-embed
 Author: Strong Anchor Tech
 Author URI: https://stronganchortech.com/
@@ -330,7 +330,7 @@ function fetch_recent_video($page_id, $access_token) {
 }
 
 function facebook_live_stream_shortcode($atts) {
-    $page_id = $atts['page_id'] ?? get_option('facebook_live_stream_page_id');
+    $page_id = isset($atts['page_id']) ? sanitize_text_field($atts['page_id']) : sanitize_text_field(get_option('facebook_live_stream_page_id'));
     $token   = get_option('facebook_live_stream_access_token');
     if ( ! $page_id ) {
         return '<p>Please set a default Page ID or pass one via shortcode.</p>';
@@ -344,25 +344,35 @@ function facebook_live_stream_shortcode($atts) {
         $token = "{$app_id}|{$app_secret}";
     }
 
-    // ** auto-refresh on each shortcode render **
+    $cache_key = 'facebook_live_stream_embed_' . md5($page_id);
+    $cached    = get_transient($cache_key);
+    if (is_string($cached) && $cached !== '') {
+        return $cached;
+    }
+
+    // Refresh only on cache misses so public page views do not churn the Graph API.
     check_and_refresh_access_token();
+    $token = get_option('facebook_live_stream_access_token') ?: $token;
 
     // try live
+    $output     = '<p>No live or recent video found.</p>';
     $live_raw   = fetch_live_video($page_id, $token);
     $live_data  = json_decode($live_raw, true);
     if ( ! empty($live_data['data']) ) {
         $vid = $live_data['data'][0];
-        return $vid['embed_html'] ?? '';
+        $output = $vid['embed_html'] ?? $output;
+    } else {
+        // fallback to recent
+        $recent_raw  = fetch_recent_video($page_id, $token);
+        $recent_data = json_decode($recent_raw, true);
+        if ( ! empty($recent_data['data']) ) {
+            $vid = $recent_data['data'][0];
+            $output = $vid['embed_html'] ?? $output;
+        }
     }
 
-    // fallback to recent
-    $recent_raw  = fetch_recent_video($page_id, $token);
-    $recent_data = json_decode($recent_raw, true);
-    if ( ! empty($recent_data['data']) ) {
-        $vid = $recent_data['data'][0];
-        return $vid['embed_html'] ?? '';
-    }
+    set_transient($cache_key, $output, 5 * MINUTE_IN_SECONDS);
 
-    return '<p>No live or recent video found.</p>';
+    return $output;
 }
 add_shortcode('facebook_live_stream', 'facebook_live_stream_shortcode');
