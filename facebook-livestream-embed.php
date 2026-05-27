@@ -3,7 +3,7 @@
 Plugin Name: Facebook Live Stream Embed
 Plugin URI: https://github.com/stronganchor/facebook-livestream-embed/
 Description: Embeds a Facebook live stream using a shortcode, with auto-refresh of page access tokens.
-Version: 1.0.10
+Version: 1.0.11
 Update URI: https://github.com/stronganchor/facebook-livestream-embed
 Author: Strong Anchor Tech
 Author URI: https://stronganchortech.com/
@@ -329,6 +329,49 @@ function fetch_recent_video($page_id, $access_token) {
     return wp_remote_retrieve_body($response);
 }
 
+function facebook_live_stream_sanitize_embed_html($html) {
+    if ( ! is_string($html) || '' === trim($html) ) {
+        return '';
+    }
+
+    $allowed_html = array(
+        'iframe' => array(
+            'allow'           => true,
+            'allowfullscreen' => true,
+            'class'           => true,
+            'frameborder'     => true,
+            'height'          => true,
+            'loading'         => true,
+            'referrerpolicy'  => true,
+            'scrolling'       => true,
+            'src'             => true,
+            'style'           => true,
+            'title'           => true,
+            'width'           => true,
+        ),
+        'blockquote' => array(
+            'cite'       => true,
+            'class'      => true,
+            'data-href'  => true,
+            'data-width' => true,
+        ),
+        'a' => array(
+            'href'   => true,
+            'rel'    => true,
+            'target' => true,
+        ),
+        'div' => array(
+            'class' => true,
+        ),
+        'p' => array(),
+        'span' => array(
+            'class' => true,
+        ),
+    );
+
+    return wp_kses($html, $allowed_html);
+}
+
 function facebook_live_stream_shortcode($atts) {
     $page_id = isset($atts['page_id']) ? sanitize_text_field($atts['page_id']) : sanitize_text_field(get_option('facebook_live_stream_page_id'));
     $token   = get_option('facebook_live_stream_access_token');
@@ -360,14 +403,20 @@ function facebook_live_stream_shortcode($atts) {
     $live_data  = json_decode($live_raw, true);
     if ( ! empty($live_data['data']) ) {
         $vid = $live_data['data'][0];
-        $output = $vid['embed_html'] ?? $output;
+        $embed_html = ! empty($vid['embed_html']) ? facebook_live_stream_sanitize_embed_html($vid['embed_html']) : '';
+        if ( '' !== $embed_html ) {
+            $output = $embed_html;
+        }
     } else {
         // fallback to recent
         $recent_raw  = fetch_recent_video($page_id, $token);
         $recent_data = json_decode($recent_raw, true);
         if ( ! empty($recent_data['data']) ) {
             $vid = $recent_data['data'][0];
-            $output = $vid['embed_html'] ?? $output;
+            $embed_html = ! empty($vid['embed_html']) ? facebook_live_stream_sanitize_embed_html($vid['embed_html']) : '';
+            if ( '' !== $embed_html ) {
+                $output = $embed_html;
+            }
         }
     }
 
